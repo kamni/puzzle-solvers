@@ -12,3 +12,13 @@ that the stones are being shifted.
 So if you're moving the stones to a neighboring pillar, then only one stone
 gets moved at a time. If you move to a pillar that is located 2 connections
 away, then 2 get moved, and so on.
+
+
+## Running the script
+
+Read the docstring at the top of ``solve.py`` and edit the initial problem
+configuration per the instructions. Then run:
+
+```bash
+python solve.py
+```
