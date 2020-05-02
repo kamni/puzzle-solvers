@@ -73,7 +73,11 @@ config = [
 
 # Set your solution constraints here.
 
-max_turns = 6
+###############################################################################
+
+# Problem 29
+
+max_turns = 5
 
 initial = [
     (1, 2),
@@ -99,6 +103,8 @@ config = [
     [ (1, 4), (2, 3), (3, 2), (4, 1), (5, 0) ],
 ]
 
+###############################################################################
+
 # Test example
 #max_turns = 2
 #
@@ -122,10 +128,20 @@ config = [
 
 #################### DON'T EDIT BELOW THIS LINE ###############################
 
+def hash_state(pillar_list):
+    return '-'.join([
+        ':'.join([
+            str(value)
+            for value in pillar
+        ])
+        for pillar in pillar_list
+    ])
+
 
 def solve(intial, config, goal, max_turns):
     QUEUE = []
     ALREADY_SEEN = []
+    DEBUG_LIST = []
 
     # Helper methods
 
@@ -150,15 +166,6 @@ def solve(intial, config, goal, max_turns):
         def _get_pillar_offset(pillar1_index, pillar2_index):
             return config[pillar1_index][pillar2_index][1]
 
-        def _hash(pillar_list):
-            return '-'.join([
-                ':'.join([
-                    str(value)
-                    for value in pillar
-                ])
-                for pillar in pillar_list
-            ])
-
         def _is_illegal_move(pillar, offset_from_pillar):
             value_for_pillar = pillar[1]
             return offset_from_pillar > value_for_pillar
@@ -171,6 +178,7 @@ def solve(intial, config, goal, max_turns):
 
         pillars, steps = current_state
         if _number_of_steps_exceeded(steps):
+            DEBUG_LIST.append(current_state)
             return
 
         for idx, current_pillar in enumerate(pillars):
@@ -196,7 +204,9 @@ def solve(intial, config, goal, max_turns):
                     other_pillar,
                 )
 
-                already_seen_hash = _hash(new_pillars)
+                already_seen_hash = (
+                    hash_state(new_pillars) + '_' + str(len(new_steps))
+                )
                 if already_seen_hash in ALREADY_SEEN:
                     continue
                 else:
@@ -204,11 +214,19 @@ def solve(intial, config, goal, max_turns):
                     ALREADY_SEEN.append(already_seen_hash)
 
 
+    def _is_not_solvable(initial, goal):
+        total_initial_value = sum(pillar[1] for pillar in initial)
+        total_goal_value = sum(pillar[1] for pillar in goal)
+        return total_initial_value != total_goal_value
+
     def _is_solved(possible_solution):
         return possible_solution[0] == goal
 
 
     # Begin main function execution
+
+    if _is_not_solvable(initial, goal):
+        return (None, [])
 
     QUEUE.append((initial, []))
     while QUEUE:
@@ -218,19 +236,26 @@ def solve(intial, config, goal, max_turns):
         else:
             _seed_queue(tmp_solution)
 
-    return None
+    return (None, DEBUG_LIST)
 
 
 def pretty_print(solution):
-    divider = '--------'
+    DIVIDER = '--------'
 
-    print(divider)
+    # Helper functions
 
-    if not solution:
-        print('No solution to the constraints provided')
-    else:
-        steps = solution[1]
-        for idx, step in enumerate(steps):
+    def _is_close_to_goal(solution, max_value_difference=2):
+        # NOTE: max_value_difference should always be a multiple of 2,
+        # because if one pillar is off by 1 stone, then the stone is added
+        # somewhere else
+        off_by = sum([
+            abs(solution[idx][1] - goal[idx][1])
+            for idx in range(len(goal))
+        ])
+        return off_by <= max_value_difference
+
+    def _print_formatted_list(step_list):
+        for idx, step in enumerate(step_list):
             print(
                 '  {num}. Move stones from pillar {p1} to {p2}'.format(
                     num=idx + 1,
@@ -239,7 +264,36 @@ def pretty_print(solution):
                 ),
             )
 
-    print(divider)
+
+    # Begin main function execution
+
+    print(DIVIDER)
+
+    pillars, steps = solution
+    if not pillars:
+        print('No solution to the constraints provided')
+        print('Close results (off by 2)')
+        print(DIVIDER)
+
+        steps.sort()
+        for idx, (result, step_list) in enumerate(steps):
+            if _is_close_to_goal(result):
+                state = hash_state(result)
+
+                print(f'Attempted Solution #{idx}:\n')
+                _print_formatted_list(step_list)
+                print(f'\nFinal State: {state}\n')
+                print(DIVIDER)
+
+    else:
+        initial_state = hash_state(initial)
+        final_state = hash_state(pillars)
+
+        print('Solved!\n')
+        print(f'Initial State: {initial_state}\n')
+        _print_formatted_list(steps)
+        print(f'\nFinal State: {final_state}\n')
+        print(DIVIDER)
 
 
 ###############################################################################
