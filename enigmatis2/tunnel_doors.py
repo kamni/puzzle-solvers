@@ -92,6 +92,7 @@ class ControlsConfig(TypedDict):
 
 BoardConfig = List[ControlsConfig]
 TilePosition = Dict[int, int]
+TileShifts = Dict[int, List[Tuple[int, int]]]
 StepList = List[int]
 StepQueue = List[Tuple[StepList, TilePosition]]
 
@@ -148,6 +149,7 @@ class Solver:
             listed in counter-clockwise order, starting from the top left.
         """
         self.config: Final[BoardConfig] = config
+        self.allowed_tile_shifts: TileShifts = self._generate_tile_shifts()
 
         # This will be set as part of run(), and is displayed by str() upon
         # completion
@@ -207,8 +209,17 @@ class Solver:
         print(self)
 
     def _calculate_new_position(self, tile_position: TilePosition,
-                                button: int) -> TilePosition:
-        return tile_position
+                                button_group: ControlsConfig) -> TilePosition:
+        """
+        When a button is pressed, calculate the new positions for tiles
+        """
+        new_position = tile_position.copy()
+        shifts = self.allowed_tile_shifts[button_group['button']]
+
+        for old_tile, new_tile in shifts:
+            new_position[old_tile] = tile_position[new_tile]
+
+        return new_position
 
     def _calculate_tile_score(self, tile_position: TilePosition) -> int:
         groups = []
@@ -247,13 +258,27 @@ class Solver:
         new_queue = []
 
         for button_group in self.config:
-            button = button_group['button']
-            new_steps = step_list[:] + [button]
-            new_position = _calculate_new_position(tile_position, button)
+            new_steps = step_list[:] + [button['button_group']]
+            new_position = _calculate_new_position(tile_position, button_group)
 
             new_queue.append((new_steps, new_position))
 
         return new_queue
+
+    def _generate_tile_shifts(self) -> TileShifts:
+        """
+        Used by init to generate the ways tiles can shift at button press
+        """
+        shifts_dict = {}
+
+        for control_config in self.config:
+            button = control_config['button']
+            shifts = control_config['controls'][:]
+
+            shifts.insert(0, shifts.pop())
+            shifts_dict[button] = shifts
+
+        return shifts_dict
 
     def _is_improvement(self, tile_position: TilePosition) -> bool:
         # TODO: have we seen this before?
