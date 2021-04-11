@@ -91,6 +91,7 @@ class ControlsConfig(TypedDict):
 
 
 BoardConfig = List[ControlsConfig]
+TileDistances = Dict[int, Tuple[int]]
 TilePosition = Dict[int, int]
 TileShifts = Dict[int, List[Tuple[int, int]]]
 StepList = List[int]
@@ -116,7 +117,7 @@ DEFAULT_BOARD_CONFIG: Final[BoardConfig] = [
         "controls": [4, 5, 10, 9],
     },
 ]
-DEFAULT_TILE_POSITION: TilePosition = {
+DEFAULT_TILE_POSITION: Final[TilePosition] = {
     1: 10,
     2: 2,
     3: 9,
@@ -128,11 +129,28 @@ DEFAULT_TILE_POSITION: TilePosition = {
     9: 4,
     10: 8,
 }
+# Distance a tile has to travel from its currentl location to get to its
+# correct location
+DEFAULT_TILE_DISTANCES: Final[TileDistances] = {
+    #   1  2  3  4  5  6  7  8  9  10
+    1: (0, 1, 2, 3, 4, 3, 2, 5, 4, 5),
+    2: (3, 0, 1, 2, 3, 2, 1, 4, 3, 4),
+    3: (4, 3, 0, 1, 2, 3, 2, 3, 2, 3),
+    4: (5, 4, 3, 0, 1, 4, 3, 2, 1, 2),
+    5: (6, 5, 4, 3, 0, 5, 4, 3, 2, 1),
+    6: (1, 2, 3, 4, 5, 0, 3, 6, 5, 6),
+    7: (2, 3, 4, 5, 4, 3, 0, 3, 4, 5),
+    8: (3, 2, 3, 2, 3, 2, 1, 0, 3, 4),
+    9: (4, 3, 2, 3, 2, 3, 2, 1, 0, 3),
+    10: (5, 4, 3, 2, 3, 4, 3, 2, 1, 0),
+}
 
 
 class Solver:
-    def __init__(self, starting_tile_position: TilePosition = DEFAULT_TILE_POSITION,
-                 config: BoardConfig=DEFAULT_BOARD_CONFIG):
+    def __init__(self,
+                 config: BoardConfig=DEFAULT_BOARD_CONFIG,
+                 starting_tile_position: TilePosition=DEFAULT_TILE_POSITION,
+                 tile_distances: TileDistances=DEFAULT_TILE_DISTANCES):
         """
         NOTE: this init does not check for correct starting positions and
         configurations. You should be using some configuration from Enigmatis
@@ -161,13 +179,14 @@ class Solver:
             listed in counter-clockwise order, starting from the top left.
         """
         self.config: Final[BoardConfig] = config
-        self.allowed_tile_shifts: TileShifts = self._generate_tile_shifts()
 
         # This will be set as part of run(), and is displayed by str() upon
         # completion
         self.solution: List[int] = []
 
         # Internal use during run()
+        self._tile_distances = tile_distances
+        self._allowed_tile_shifts: TileShifts = self._generate_tile_shifts()
         self._current_layout: TilePosition = None
         self._step_queue: StepQueue = [([], starting_tile_position)]
         self._seen_layouts: Set[int] = set()
@@ -182,7 +201,7 @@ class Solver:
             tostring += 'The steps to solve the puzzle:\n\n'
             for step_num, step in enumerate(self.solution):
                 tostring += '\t{}. Press button {}\n'.format(
-                    self._format_integer(step_num),
+                    self._format_integer(step_num + 1),
                     step,
                 )
 
@@ -190,7 +209,7 @@ class Solver:
         return tostring
 
     def run(self):
-        while not (solved := False) and len(self._step_queue) > 0:
+        while not self.solution and len(self._step_queue) > 0:
             current_steps, current_tile_position = self._step_queue.pop()
             self._current_layout = current_tile_position
 
@@ -201,7 +220,7 @@ class Solver:
             for steps, tile_position in next_steps:
                 if self._is_solved(tile_position):
                     self.solution = steps
-                    solved = True
+                    self._current_layout = tile_position
                     break
 
                 if self._is_improvement(tile_position):
@@ -226,7 +245,7 @@ class Solver:
         When a button is pressed, calculate the new positions for tiles
         """
         new_position = tile_position.copy()
-        shifts = self.allowed_tile_shifts[button_group['button']]
+        shifts = self._allowed_tile_shifts[button_group['button']]
 
         for old_tile, new_tile in shifts:
             new_position[old_tile] = tile_position[new_tile]
@@ -289,8 +308,8 @@ class Solver:
         for control_config in self.config:
             button = control_config['button']
             old_position = control_config['controls']
-            new_position = old_position[:]
 
+            new_position = old_position[:]
             new_position.insert(0, new_position.pop())
             shifts_dict[button] = list(zip(old_position, new_position))
 
@@ -299,6 +318,8 @@ class Solver:
     def _is_improvement(self, tile_position: TilePosition) -> bool:
         if self._format_seen_layout(tile_position) in self._seen_layouts:
             return False
+
+        
         # TODO: is it a better score?
         return True
 
@@ -316,4 +337,16 @@ if __name__ == '__main__':
         print("You must have at least python version 3.8 to run this.")
         sys.exit(1)
 
-    Solver().run()
+    test_config = [
+        {
+            "button": 1,
+            "controls": [1, 2, 7, 6],
+        },
+    ]
+    test_position = {
+        1: 2,
+        2: 7,
+        6: 1,
+        7: 6,
+    }
+    Solver(test_config, test_position).run()
