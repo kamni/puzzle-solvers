@@ -82,7 +82,7 @@ There are 10 tiles in the original game, with 4 buttons to rotate the groups
 of tiles.
 """
 
-from typing import Dict, List, TypedDict
+from typing import Dict, Final, List, Tuple, TypedDict
 
 
 class ControlsConfig(TypedDict):
@@ -92,9 +92,11 @@ class ControlsConfig(TypedDict):
 
 BoardConfig = List[ControlsConfig]
 TilePosition = Dict[int, int]
+StepList = List[int]
+StepQueue = Tuple[StepList, TilePosition]
 
 
-STANDARD_CONFIG: BoardConfig = [
+STANDARD_CONFIG: Final[BoardConfig] = [
     {
         "button": 1,
         "controls": [1, 2, 7, 6],
@@ -144,38 +146,62 @@ class Solver:
             the positions are numbered top-to-bottom; the controls groups are
             listed in counter-clockwise order, starting from the top left.
         """
-        self.config = config
-        self.current_layout = starting_tile_position
+        self.config: Final[BoardConfig] = config
 
-        self.steps = []
-        self.step_queue = [starting_tile_position]
-        self.seen_layouts = [self._format_seen_layout(starting_tile_position)]
+        # This will be set as part of run(), and is displayed by str() upon
+        # completion
+        self.solution: List[int] = []
 
-    def __str__(self):
+        # Internal use during run()
+        self._current_layout: TilePosition = None
+        self._step_queue: StepQueue = [[], starting_tile_position]
+        self._seen_layouts: List[int] = []
+
+    def __str__(self) -> str:
         tostring = ''
 
-        if self._is_solved():
-            if not self.steps:
-                return 'Puzzle already solved! No changes needed.'
-
-            tostring += 'The steps to solve the puzzle:\n'
+        if not (self.solution and self._is_solved(self._current_layout)):
+            tostring = 'The puzzle is not solved.\n'
+            tostring += f'Current layout:\n\t{self._current_layout}'
         else:
-            tostring += 'The puzzle is not yet solved.\n'
-
-        for step_num, step in enumerate(self.steps):
-            tostring += '\t{}. Press button {}'.format(
-                self._format_integer(step_num),
-                step,
-            )
-
-        if not self._is_solved():
-            tostring += '\nCurrent layout:\n'
-            tostring += str(self.current_layout)
+            tostring += 'The steps to solve the puzzle:\n'
+            for step_num, step in enumerate(self.solution):
+                tostring += '\t{}. Press button {}'.format(
+                    self._format_integer(step_num),
+                    step,
+                )
 
         return tostring
 
     def run(self):
-        # TODO: type hints
+        while (solved := False) and len(self.step_queue) >= 0:
+            current_steps, current_tile_position = self.step_queue.pop()
+            self._current_layout = current_tile_position
+
+            next_steps = self._generate_next_steps(
+                current_steps,
+                current_tile_position,
+            )
+            for steps, tile_position in next_steps:
+                if self._is_solved(tile_position):
+                    self.solution = steps
+                    solved = True
+                    break
+
+                if self._is_improvement(tile_position):
+                    self.step_queue.insert(0, [steps, tile_position])
+                else:
+                    # We don't want to waste our time in the future, so let's
+                    # stick it in seen_layouts, even though we haven't properly
+                    # looked at it
+                    self.seen_layouts.append(
+                        self._format_seen_layout(tile_position),
+                    )
+
+            self.seen_layouts.append(
+                self._format_seen_layout(current_tile_position),
+            )
+
         print(self)
 
     def _calculate_tile_score(self, tile_position: TilePosition) -> int:
@@ -183,7 +209,10 @@ class Solver:
 
         # We're going to assume a correct tile position and config; failures
         # are the responsibility of the programmer
-        #while (slice_start := 0) < len(tile_position):
+        for group in self.config:
+            pass
+        while (slice_start := 0) < len(tmp_tiles):
+            slice_start = 10000
         return 0
 
     def _format_integer(self, num: int) -> str:
@@ -207,9 +236,16 @@ class Solver:
                 for num in tup
         ]))
 
-    def _is_solved(self) -> bool:
-        for key in self.current_layout:
-            if key != self.current_layout[key]:
+    def _generate_next_steps(self, step_list: StepList,
+                             tile_position: TilePosition) -> StepQueue:
+        return []
+
+    def _is_improvement(self, tile_position: TilePosition) -> bool:
+        return False
+
+    def _is_solved(self, tile_position: TilePosition) -> bool:
+        for control, tile in title_position.items():
+            if control != tile:
                 return False
         return True
 
