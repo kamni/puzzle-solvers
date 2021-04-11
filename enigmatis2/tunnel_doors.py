@@ -93,10 +93,11 @@ class ControlsConfig(TypedDict):
 BoardConfig = List[ControlsConfig]
 TilePosition = Dict[int, int]
 StepList = List[int]
-StepQueue = Tuple[StepList, TilePosition]
+StepQueue = List[Tuple[StepList, TilePosition]]
 
 
-STANDARD_CONFIG: Final[BoardConfig] = [
+# This is the initial setup in Enigmatis 2
+DEFAULT_CONFIG: Final[BoardConfig] = [
     {
         "button": 1,
         "controls": [1, 2, 7, 6],
@@ -118,7 +119,7 @@ STANDARD_CONFIG: Final[BoardConfig] = [
 
 class Solver:
     def __init__(self, starting_tile_position: TilePosition,
-                 config: BoardConfig=STANDARD_CONFIG):
+                 config: BoardConfig=DEFAULT_CONFIG):
         """
         NOTE: this init does not check for correct starting positions and
         configurations. You should be using some configuration from Enigmatis
@@ -154,23 +155,24 @@ class Solver:
 
         # Internal use during run()
         self._current_layout: TilePosition = None
-        self._step_queue: StepQueue = [[], starting_tile_position]
+        self._step_queue: StepQueue = [([], starting_tile_position)]
         self._seen_layouts: List[int] = []
 
     def __str__(self) -> str:
-        tostring = ''
+        tostring = '\n----------\n\n'
 
         if not (self.solution and self._is_solved(self._current_layout)):
-            tostring = 'The puzzle is not solved.\n'
+            tostring += 'The puzzle is not solved.\n\n'
             tostring += f'Current layout:\n\t{self._current_layout}'
         else:
-            tostring += 'The steps to solve the puzzle:\n'
+            tostring += 'The steps to solve the puzzle:\n\n'
             for step_num, step in enumerate(self.solution):
-                tostring += '\t{}. Press button {}'.format(
+                tostring += '\t{}. Press button {}\n'.format(
                     self._format_integer(step_num),
                     step,
                 )
 
+        tostring += '\n\n---------\n'
         return tostring
 
     def run(self):
@@ -238,9 +240,16 @@ class Solver:
 
     def _generate_next_steps(self, step_list: StepList,
                              tile_position: TilePosition) -> StepQueue:
+        for button_group in self.config:
+            button = button_group['button']
+            new_steps = step_list[:] + [button]
+            #new_position = _calculate_new_position(tile_position, button)
+
         return []
 
     def _is_improvement(self, tile_position: TilePosition) -> bool:
+        # TODO: have we seen this before?
+        # TODO: is it a better score?
         return False
 
     def _is_solved(self, tile_position: TilePosition) -> bool:
