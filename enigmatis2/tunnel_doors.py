@@ -91,7 +91,6 @@ class ControlsConfig(TypedDict):
 
 
 BoardConfig = List[ControlsConfig]
-TileDistances = Dict[int, Tuple[int]]
 TilePosition = Dict[int, int]
 TileShifts = Dict[int, List[Tuple[int, int]]]
 StepList = List[int]
@@ -129,28 +128,11 @@ DEFAULT_TILE_POSITION: Final[TilePosition] = {
     9: 4,
     10: 8,
 }
-# Distance a tile has to travel from its currentl location to get to its
-# correct location
-DEFAULT_TILE_DISTANCES: Final[TileDistances] = {
-    #   1  2  3  4  5  6  7  8  9  10
-    1: (0, 1, 2, 3, 4, 3, 2, 5, 4, 5),
-    2: (3, 0, 1, 2, 3, 2, 1, 4, 3, 4),
-    3: (4, 3, 0, 1, 2, 3, 2, 3, 2, 3),
-    4: (5, 4, 3, 0, 1, 4, 3, 2, 1, 2),
-    5: (6, 5, 4, 3, 0, 5, 4, 3, 2, 1),
-    6: (1, 2, 3, 4, 5, 0, 3, 6, 5, 6),
-    7: (2, 3, 4, 5, 4, 3, 0, 3, 4, 5),
-    8: (3, 2, 3, 2, 3, 2, 1, 0, 3, 4),
-    9: (4, 3, 2, 3, 2, 3, 2, 1, 0, 3),
-    10: (5, 4, 3, 2, 3, 4, 3, 2, 1, 0),
-}
 
 
 class Solver:
-    def __init__(self,
-                 config: BoardConfig=DEFAULT_BOARD_CONFIG,
-                 starting_tile_position: TilePosition=DEFAULT_TILE_POSITION,
-                 tile_distances: TileDistances=DEFAULT_TILE_DISTANCES):
+    def __init__(self, config: BoardConfig=DEFAULT_BOARD_CONFIG,
+                 starting_tile_position: TilePosition=DEFAULT_TILE_POSITION):
         """
         NOTE: this init does not check for correct starting positions and
         configurations. You should be using some configuration from Enigmatis
@@ -185,7 +167,6 @@ class Solver:
         self.solution: List[int] = []
 
         # Internal use during run()
-        self._tile_distances = tile_distances
         self._allowed_tile_shifts: TileShifts = self._generate_tile_shifts()
         self._current_layout: TilePosition = None
         self._step_queue: StepQueue = [([], starting_tile_position)]
@@ -194,7 +175,7 @@ class Solver:
     def __str__(self) -> str:
         tostring = '\n----------\n\n'
 
-        if not (self.solution and self._is_solved(self._current_layout)):
+        if not self.solution:
             tostring += 'The puzzle is not solved.\n\n'
             tostring += f'Current layout:\n\t{self._current_layout}'
         else:
@@ -252,17 +233,6 @@ class Solver:
 
         return new_position
 
-    def _calculate_tile_score(self, tile_position: TilePosition) -> int:
-        groups = []
-
-        # We're going to assume a correct tile position and config; failures
-        # are the responsibility of the programmer
-        for group in self.config:
-            pass
-        while (slice_start := 0) < len(tmp_tiles):
-            slice_start = 10000
-        return 0
-
     def _format_integer(self, num: int) -> str:
         """
         Pad out integers less than 10 with a leading 0
@@ -319,8 +289,13 @@ class Solver:
         if self._format_seen_layout(tile_position) in self._seen_layouts:
             return False
 
-        
-        # TODO: is it a better score?
+        # TODO: I was originally going to play around with a genetic algorithm
+        # that calculated the distance to the tile's final location, and then
+        # prune any options that were a significant decrease in score (i.e., it
+        # gets farther from the desired final outcome; however, the Solver
+        # already returns a result relatively quickly, and a genetic algorithm
+        # is a bit of an overkill if this solver isn't taking a long time.
+        # Perhaps I'll play with genetic algorithms later?
         return True
 
     def _is_solved(self, tile_position: TilePosition) -> bool:
@@ -337,16 +312,4 @@ if __name__ == '__main__':
         print("You must have at least python version 3.8 to run this.")
         sys.exit(1)
 
-    test_config = [
-        {
-            "button": 1,
-            "controls": [1, 2, 7, 6],
-        },
-    ]
-    test_position = {
-        1: 2,
-        2: 7,
-        6: 1,
-        7: 6,
-    }
-    Solver(test_config, test_position).run()
+    Solver().run()
