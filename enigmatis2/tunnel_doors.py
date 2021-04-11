@@ -98,7 +98,7 @@ StepQueue = List[Tuple[StepList, TilePosition]]
 
 
 # This is the initial setup in Enigmatis 2
-DEFAULT_CONFIG: Final[BoardConfig] = [
+DEFAULT_BOARD_CONFIG: Final[BoardConfig] = [
     {
         "button": 1,
         "controls": [1, 2, 7, 6],
@@ -116,11 +116,23 @@ DEFAULT_CONFIG: Final[BoardConfig] = [
         "controls": [4, 5, 10, 9],
     },
 ]
+DEFAULT_TILE_POSITION: TilePosition = {
+    1: 10,
+    2: 2,
+    3: 9,
+    4: 5,
+    5: 3,
+    6: 1,
+    7: 6,
+    8: 7,
+    9: 4,
+    10: 8,
+}
 
 
 class Solver:
-    def __init__(self, starting_tile_position: TilePosition,
-                 config: BoardConfig=DEFAULT_CONFIG):
+    def __init__(self, starting_tile_position: TilePosition = DEFAULT_TILE_POSITION,
+                 config: BoardConfig=DEFAULT_BOARD_CONFIG):
         """
         NOTE: this init does not check for correct starting positions and
         configurations. You should be using some configuration from Enigmatis
@@ -137,7 +149,7 @@ class Solver:
             reversed, your dictionary should look like:
 
                 {
-                    1: 2,
+                    1: 2,  # control position: tile position
                     2: 1,
                 }
 
@@ -158,7 +170,7 @@ class Solver:
         # Internal use during run()
         self._current_layout: TilePosition = None
         self._step_queue: StepQueue = [([], starting_tile_position)]
-        self._seen_layouts: List[int] = []
+        self._seen_layouts: Set[int] = set()
 
     def __str__(self) -> str:
         tostring = '\n----------\n\n'
@@ -178,8 +190,8 @@ class Solver:
         return tostring
 
     def run(self):
-        while (solved := False) and len(self.step_queue) >= 0:
-            current_steps, current_tile_position = self.step_queue.pop()
+        while not (solved := False) and len(self._step_queue) > 0:
+            current_steps, current_tile_position = self._step_queue.pop()
             self._current_layout = current_tile_position
 
             next_steps = self._generate_next_steps(
@@ -193,16 +205,16 @@ class Solver:
                     break
 
                 if self._is_improvement(tile_position):
-                    self.step_queue.insert(0, [steps, tile_position])
+                    self._step_queue.insert(0, [steps, tile_position])
                 else:
                     # We don't want to waste our time in the future, so let's
                     # stick it in seen_layouts, even though we haven't properly
                     # looked at it
-                    self.seen_layouts.append(
+                    self._seen_layouts.add(
                         self._format_seen_layout(tile_position),
                     )
 
-            self.seen_layouts.append(
+            self._seen_layouts.add(
                 self._format_seen_layout(current_tile_position),
             )
 
@@ -258,8 +270,11 @@ class Solver:
         new_queue = []
 
         for button_group in self.config:
-            new_steps = step_list[:] + [button['button_group']]
-            new_position = _calculate_new_position(tile_position, button_group)
+            new_steps = step_list[:] + [button_group['button']]
+            new_position = self._calculate_new_position(
+                tile_position,
+                button_group,
+            )
 
             new_queue.append((new_steps, new_position))
 
@@ -273,20 +288,22 @@ class Solver:
 
         for control_config in self.config:
             button = control_config['button']
-            shifts = control_config['controls'][:]
+            old_position = control_config['controls']
+            new_position = old_position[:]
 
-            shifts.insert(0, shifts.pop())
-            shifts_dict[button] = shifts
+            new_position.insert(0, new_position.pop())
+            shifts_dict[button] = list(zip(old_position, new_position))
 
         return shifts_dict
 
     def _is_improvement(self, tile_position: TilePosition) -> bool:
-        # TODO: have we seen this before?
+        if self._format_seen_layout(tile_position) in self._seen_layouts:
+            return False
         # TODO: is it a better score?
-        return False
+        return True
 
     def _is_solved(self, tile_position: TilePosition) -> bool:
-        for control, tile in title_position.items():
+        for control, tile in tile_position.items():
             if control != tile:
                 return False
         return True
@@ -299,25 +316,4 @@ if __name__ == '__main__':
         print("You must have at least python version 3.8 to run this.")
         sys.exit(1)
 
-    # I've already manually solved the top 4 tiles; I'm going to do a smaller
-    # config where I just solve the bottom 6 tiles
-    custom_config = [
-        {
-            "button": 3,
-            "controls": [3, 4, 9, 8],
-        },
-        {
-            "button": 4,
-            "controls": [4, 5, 10, 9],
-        },
-    ]
-    starting_tiles = {
-        3: 8,
-        4: 4,
-        5: 9,
-        8: 10,
-        9: 3,
-        10: 5,
-    }
-
-    Solver(starting_tiles, custom_config).run()
+    Solver().run()
