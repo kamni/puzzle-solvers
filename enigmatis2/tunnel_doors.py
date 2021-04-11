@@ -206,6 +206,10 @@ class Solver:
 
         print(self)
 
+    def _calculate_new_position(self, tile_position: TilePosition,
+                                button: int) -> TilePosition:
+        return tile_position
+
     def _calculate_tile_score(self, tile_position: TilePosition) -> int:
         groups = []
 
@@ -240,12 +244,16 @@ class Solver:
 
     def _generate_next_steps(self, step_list: StepList,
                              tile_position: TilePosition) -> StepQueue:
+        new_queue = []
+
         for button_group in self.config:
             button = button_group['button']
             new_steps = step_list[:] + [button]
-            #new_position = _calculate_new_position(tile_position, button)
+            new_position = _calculate_new_position(tile_position, button)
 
-        return []
+            new_queue.append((new_steps, new_position))
+
+        return new_queue
 
     def _is_improvement(self, tile_position: TilePosition) -> bool:
         # TODO: have we seen this before?
