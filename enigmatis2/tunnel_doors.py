@@ -44,6 +44,8 @@ class Solver:
         self.current_layout = starting_tile_position
 
         self.steps = []
+        self.step_queue = [starting_tile_position]
+        self.seen_layouts = [self._format_seen_layout(starting_tile_position)]
 
     def __str__(self):
         tostring = ''
@@ -57,7 +59,10 @@ class Solver:
             tostring += 'The puzzle is not yet solved.\n'
 
         for step_num, step in enumerate(self.steps):
-            tostring += '\t{}. Press button {}', step_num, step
+            tostring += '\t{}. Press button {}'.format(
+                self._format_integer(step_num),
+                step,
+            )
 
         if not self._is_solved():
             tostring += '\nCurrent layout:\n'
@@ -67,6 +72,24 @@ class Solver:
 
     def run(self):
         print(self)
+
+    def _format_integer(self, num):
+        return str(num).zfill(2)
+
+    def _format_seen_layout(self, tile_position):
+        """
+        Converts a dictionary into an integer for self.seen_layouts.
+
+        This is to minimize comparison times when checking "Have we seen this
+        layout before?"
+        """
+        pos_list = list(tile_position.items())
+        pos_list.sort()
+        return ''.join([
+            self._format_integer(num)
+            for tup in pos_list
+                for num in tup
+        ])
 
     def _is_solved(self):
         for key in self.current_layout:
