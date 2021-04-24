@@ -138,12 +138,10 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
         already_seen_in_run = set()
         pillars, steps = current_state
 
-        def _find_new_state(
-            current_pillar,
-            current_pillar_idx,
-            target_pillar,
-            target_pillar_idx,
-        ):
+        def _find_new_state(current_pillar_idx, target_pillar_idx):
+            current_pillar = pillars[current_pillar_idx]
+            target_pillar = pillars[target_pillar_idx]
+
             value_offset = _get_pillar_offset(current_pillar_idx, target_pillar_idx)
             if _is_illegal_move(current_pillar, value_offset):
                 return None
@@ -157,7 +155,7 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
             )
             new_steps = _get_new_steps(
                 current_pillar,
-                other_pillar,
+                target_pillar,
             )
 
             new_state_hash = _hash_state(new_pillars)
@@ -171,16 +169,10 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
             queue.append((new_pillars, new_steps))
             already_seen_in_run.add(already_seen_hash)
 
-        for idx, current_pillar in enumerate(pillars):
-            current_config = config[idx]
-
-            for jdx, other_pillar in enumerate(pillars):
-                _find_new_state(
-                    current_pillar,
-                    idx,
-                    other_pillar,
-                    jdx,
-                )
+        pillars_len = len(pillars)
+        for idx in range(pillars_len):
+            for jdx in range(pillars_len):
+                _find_new_state(idx, jdx)
 
         next_queue: BoardQueue = (queue, already_seen_in_run)
         return next_queue
