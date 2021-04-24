@@ -16,10 +16,15 @@ Solver for the Mystic Pillars video game.
 from puzzle_config import PositionList, PillarDistance, PUZZLES, PuzzleConfig
 
 
-def solve(initial, config, goal, max_turns):
+def solve(puzzle_config: PuzzleConfig):
     QUEUE = []
     ALREADY_SEEN = set()
     DEBUG_LIST = []
+
+    max_turns = puzzle_config['max_turns']
+    initial = puzzle_config['initial']
+    goal = puzzle_config['goal']
+    config = puzzle_config['config']
 
     # This is a little bit of optimization magic
     def _minimum_number_of_turns(initial, goal):
@@ -142,7 +147,7 @@ def solve(initial, config, goal, max_turns):
     return (None, DEBUG_LIST, None)
 
 
-def pretty_print(initial, solution):
+def pretty_print(solution):
     DIVIDER = '--------'
 
     # Helper functions
@@ -197,13 +202,7 @@ if __name__ == '__main__':
     from timeit import timeit
 
     def runme():
-        puzzle = PUZZLES[47]
-        solution = solve(
-            puzzle['initial'],
-            puzzle['config'],
-            puzzle['goal'],
-            puzzle['max_turns'],
-        )
-        pretty_print(puzzle['initial'], solution)
+        solution = solve(PUZZLES[47])
+        pretty_print(solution)
 
     print(timeit(runme, number=1))
