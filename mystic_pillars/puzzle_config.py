@@ -67,39 +67,12 @@ config = (
 
 """
 
-###############################################################################
-
-# SKIP TO THE BOTTOM TO SET SOLUTION CONSTRAINTS
-
-from typing import Dict, Tuple, TypedDict
-
-
-# Iterable of tuples describing the layout of the current board. First number in
-# the tuple is the column number; second number is the number of stones sitting
-# on the column.
-PositionList = Tuple[Tuple[int, int]]
-
-# Iterable of tuples describing distance to each of the pillars relative to another
-# pillar. First number of the tuple is the column number to move stones to;
-# second number is the distance (number of hops) stones must be moved to reach
-# that pillar. If the distance is 0, then the stones are either already at the
-# pillar, or the pillar is unreachable.
-PillarDistance = Tuple[Tuple[int, int]]
-
-class PuzzleConfig(TypedDict):
-    max_turns: int
-    initial: PositionList
-    goal: PositionList
-    config: Tuple[PillarDistance]
-
-# Dictionary of puzzle configurations. The key is the number of the puzzle
-MultiplePuzzleConfig = Dict[int, PuzzleConfig]
-
-###############################################################################
-
 # SET YOUR SOLUTION CONSTRAINTS HERE
 
-PUZZLES: MultiplePuzzleConfig = {
+# If you need more advice on how to set these up, please read the code under
+# TYPE DEFINITIONS in solve.py
+
+PUZZLES = {
     0: {  # test problem
         'max_turns': 2,
         'initial': (

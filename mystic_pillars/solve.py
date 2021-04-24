@@ -13,9 +13,46 @@ Solver for the Mystic Pillars video game.
 
 """
 
-from puzzle_config import PositionList, PillarDistance, PUZZLES, PuzzleConfig
+from typing import Dict, Optional, Tuple, TypedDict
+
+from puzzle_config import PUZZLES
 
 
+###############################################################################
+
+# TYPE DEFINITIONS
+
+# Iterable of tuples describing the layout of the current board. First number in
+# the tuple is the column number; second number is the number of stones sitting
+# on the column.
+PositionList = Tuple[Tuple[int, int]]
+
+# Iterable of tuples describing distance to each of the pillars relative to another
+# pillar. First number of the tuple is the column number to move stones to;
+# second number is the distance (number of hops) stones must be moved to reach
+# that pillar. If the distance is 0, then the stones are either already at the
+# pillar, or the pillar is unreachable.
+PillarDistance = Tuple[Tuple[int, int]]
+
+class PuzzleConfig(TypedDict):
+    max_turns: int
+    initial: PositionList
+    goal: PositionList
+    config: Tuple[PillarDistance]
+
+# Dictionary of puzzle configurations. The key is the number of the puzzle
+MultiplePuzzleConfig = Dict[int, PuzzleConfig]
+
+###############################################################################
+
+# SOLVERS
+
+def solve_all(puzzles: MultiplePuzzleConfig):
+    # TODO: running all of them at the same time
+    pass
+
+
+# TODO: finish typing the return value for this function
 def solve(puzzle_config: PuzzleConfig):
     QUEUE = []
     ALREADY_SEEN = set()
@@ -26,13 +63,25 @@ def solve(puzzle_config: PuzzleConfig):
     goal = puzzle_config['goal']
     config = puzzle_config['config']
 
-    # This is a little bit of optimization magic
-    def _minimum_number_of_turns(initial, goal):
-        filled_initial_pillars = sum([1 for pillar in initial if pillar[1] > 0])
-        filled_solved_pillars = sum([1 for pillar in goal if pillar[1] > 0])
-        return abs(filled_initial_pillars - filled_solved_pillars)
+    # Optimization magic -- we can cut down on how much searching we do if we
+    # can guess that the number of filled goal pillars matches the number of
+    # initially-filled pillars, implying each pillar only needs to be moved
+    # once
+    min_turns = abs(
+        sum([1 for pillar in initial if pillar[1] > 0]) -
+        sum([1 for pillar in goal if pillar[1] > 0])
+    )
+    total_initial_value = sum(pillar[1] for pillar in initial)
+    total_goal_value = sum(pillar[1] for pillar in goal)
+    
+    ONLY_MOVE_A_PILLAR_ONCE = max_turns == min_turns
+    IS_NOT_SOLVEABLE = (
+        min_turns > max_turns or
+        total_initial_value != total_goal_value
+    )
 
-    ONLY_MOVE_A_PILLAR_ONCE = max_turns == _minimum_number_of_turns(initial, goal)
+    if IS_NOT_SOLVEABLE:
+        ret (None, (), None)
 
     # Helper methods
     def _hash_state(position_list: PositionList):
@@ -118,23 +167,10 @@ def solve(puzzle_config: PuzzleConfig):
                 ALREADY_SEEN.add(already_seen_hash)
 
 
-    def _is_not_solvable(initial, goal):
-        min_turns = _minimum_number_of_turns(initial, goal)
-        total_initial_value = sum(pillar[1] for pillar in initial)
-        total_goal_value = sum(pillar[1] for pillar in goal)
-        return (
-            min_turns > max_turns or
-            total_initial_value != total_goal_value
-        )
-
     def _is_solved(possible_solution):
         return possible_solution[0] == goal
 
-
     # Begin main function execution
-
-    if _is_not_solvable(initial, goal):
-        return (None, [])
 
     QUEUE.append((initial, [], set()))
     while QUEUE:
@@ -171,7 +207,6 @@ def pretty_print(solution):
                     p2=step[1],
                 ),
             )
-
 
     # Begin main function execution
 
