@@ -173,11 +173,7 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
             already_seen_in_run.add(already_seen_hash)
 
         for current_pillar in enumerate(pillars):
-            for target_pillar in enumerate(pillars):
-                _find_new_state(
-                    current_pillar,
-                    target_pillar,
-                )
+            foo = list(map(lambda target_pillar: _find_new_state(current_pillar, target_pillar), enumerate(pillars)))
 
         next_queue: BoardQueue = (queue, already_seen_in_run)
         return next_queue
