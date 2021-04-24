@@ -226,6 +226,20 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
         next_queue: BoardQueue = (queue, already_seen_in_run)
         return next_queue
 
+    def _is_close_to_goal(
+            current_position: BoardPositions,
+            goal: BoardPositions,
+            max_value_difference: int=2,
+    ) -> bool:
+        # NOTE: max_value_difference should always be a multiple of 2,
+        # because if a pillar has one too many stones, there should be
+        # a corresponding pillar that has one too few stones.
+        off_by = sum([
+            abs(current_position[idx][1] - goal[idx][1])
+            for idx in range(len(goal))
+        ])
+        return off_by <= max_value_difference
+
     def _is_solved(
             current_position: BoardPositions,
             goal_position: BoardPositions,
@@ -245,9 +259,10 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
     def main(
             queue: List[BoardState],
             goal: BoardPositions,
-    ) -> Optional[Solution]:
+    ) -> Tuple[Optional[Solution], Optional[List[BoardState]]]:
         solutions_already_seen: AlreadySeenMoves = set()
 
+        debugging_queue: List[BoardState] = []
         while queue:
             current_position, steps = queue.pop()
 
@@ -255,9 +270,15 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
                 solution: Solution = {
                     'status': 'solved',
                     'steps': steps,
+                    'debug': [],
                 }
-                return solution
-            elif len(steps) >= max_turns:
+                return (solution, [])
+
+            if _is_close_to_goal(current_position, goal):
+                close_state: BoardState = (current_position, steps)
+                debugging_queue.append(close_state)
+
+            if len(steps) >= max_turns:
                     continue
             else:
                 new_states, seen_states = _seed_queue(
@@ -267,16 +288,16 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
                 solutions_already_seen.update(seen_states)
                 queue.extend(new_states)
 
-        return None
+        return (None, debugging_queue)
 
     # Begin main function execution
 
     queue: List[BoardState] = [(initial, [])]
-    solution: Solution = main(queue, goal)
+    solution, debugging_queue = main(queue, goal)
 
     if not solution:
         solution = FAILURE_SOLUTION.copy()
-        # TODO: add debugging info
+        solution['debug'] = debugging_queue
 
     return solution
 
@@ -303,7 +324,11 @@ def pretty_print(solution: Solution, puzzle_number: int):
     elif solution['status'] == 'no_solution':
         print(f'No solution to puzzle #{puzzle_number} for the constraints provided')
     else:
-        print(f'TODO: return off by two')
+        print(f'Several close solutions were almost found for puzzle #{puzzle_number}:\n')
+        debug_queue = solution['debug'][:5]
+        for _, steps in debug_queue:
+            _print_formatted_list(steps)
+            print('****')
 
     print(DIVIDER)
 
