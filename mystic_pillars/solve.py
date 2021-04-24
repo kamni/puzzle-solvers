@@ -56,21 +56,22 @@ BoardQueue = Tuple[List[BoardState], AlreadySeenMoves]
 class Solution(TypedDict):
     status: str  # solved, unsolved
     steps: List[GameMove]
+    debug: Optional[List[List[GameMove]]]
 
 ###############################################################################
 
-# SOLVERS
+# SOLVER
 
-def solve_all(puzzles: MultiplePuzzleConfig):
-    # TODO: running all of them at the same time
-    pass
-
-
-# TODO: finish typing the return value for this function
 def solve(puzzle_config: PuzzleConfig) -> Solution:
-    FAILURE_SOLUTION = {
-        'status': 'unsolved',
+    NO_SOLUTION = {
+        'status': 'no_solution',
         'steps': [],
+        'debug': [],
+    }
+    FAILURE_SOLUTION = {
+        'status': 'failed',
+        'steps': [],
+        'debug': [],
     }
 
     max_turns: int = puzzle_config['max_turns']
@@ -94,7 +95,7 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
     )
 
     if IS_NOT_SOLVEABLE:
-        return FAILURE_SOLUTION
+        return NO_SOLUTION
 
     ########################### HELPER METHODS ################################
 
@@ -272,7 +273,12 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
 
     queue: List[BoardState] = [(initial, [])]
     solution: Solution = main(queue, goal)
-    return solution or FAILURE_SOLUTION
+
+    if not solution:
+        solution = FAILURE_SOLUTION.copy()
+        # TODO: add debugging info
+
+    return solution
 
 
 def pretty_print(solution: Solution, puzzle_number: int):
@@ -291,14 +297,16 @@ def pretty_print(solution: Solution, puzzle_number: int):
     # Begin main function execution
     print(DIVIDER)
 
-    if not solution['status'] == 'solved':
-        print(f'No solution to puzzle #{puzzle_number}for the constraints provided')
-        print(DIVIDER)
-
-    else:
+    if solution['status'] == 'solved':
         print(f'Solved puzzle #{puzzle_number}!\n')
         _print_formatted_list(solution['steps'])
-        print(DIVIDER)
+    elif solution['status'] == 'no_solution':
+        print(f'No solution to puzzle #{puzzle_number} for the constraints provided')
+    else:
+        print(f'TODO: return off by two')
+
+    print(DIVIDER)
+
 
 
 
@@ -308,8 +316,8 @@ if __name__ == '__main__':
     from timeit import timeit
 
     def runme():
-        puzzle_number = 47
-        solution = solve(PUZZLES[puzzle_number])
-        pretty_print(solution, puzzle_number)
+        for puzzle_number, config in PUZZLES.items():
+            solution = solve(config)
+            pretty_print(solution, puzzle_number)
 
     print(timeit(runme, number=1))
