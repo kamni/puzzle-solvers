@@ -339,11 +339,16 @@ def pretty_print(solution: Solution, puzzle_number: int):
 ###############################################################################
 
 if __name__ == '__main__':
+    import multiprocessing as mp
     from timeit import timeit
 
+    def solve_puzzle(puzzle):
+        puzzle_number, config = puzzle
+        solution = solve(config)
+        pretty_print(solution, puzzle_number)
+
     def runme():
-        for puzzle_number, config in PUZZLES.items():
-            solution = solve(config)
-            pretty_print(solution, puzzle_number)
+        pool = mp.Pool(mp.cpu_count())
+        pool.map(solve_puzzle, PUZZLES.items())
 
     print(timeit(runme, number=1))
