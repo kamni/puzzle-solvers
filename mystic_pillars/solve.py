@@ -81,13 +81,13 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
     # can guess that the number of filled goal pillars matches the number of
     # initially-filled pillars, implying each pillar only needs to be moved
     # once
-    min_turns = abs(
+    min_turns: int = abs(
         sum([1 for pillar in initial if pillar[1] > 0]) -
         sum([1 for pillar in goal if pillar[1] > 0])
     )
-    total_initial_value = sum(pillar[1] for pillar in initial)
-    total_goal_value = sum(pillar[1] for pillar in goal)
-    IS_NOT_SOLVEABLE = (
+    total_initial_value: int = sum(pillar[1] for pillar in initial)
+    total_goal_value: int = sum(pillar[1] for pillar in goal)
+    IS_NOT_SOLVEABLE: bool = (
         min_turns > max_turns or
         total_initial_value != total_goal_value
     )
@@ -95,10 +95,10 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
     if IS_NOT_SOLVEABLE:
         return FAILURE_SOLUTION
 
-    # Helper methods
-    def _hash_state(position_list: PositionList):
-        return hash(position_list)
+    ########################### HELPER METHODS ################################
 
+    def _hash_state(position_list: PositionList) -> int:
+        return hash(position_list)
 
     def _seed_queue(
         current_state: BoardState,
@@ -107,38 +107,51 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
 
         # Helper methods
         def _find_new_state(
-            current_pillar_info,
-            target_pillar_info,
-            already_seen_in_run,
-            already_seen_global,
-        ):
+                current_pillar_info: Tuple[int, PositionList],
+                target_pillar_info: Tuple[int, PositionList],
+                already_seen_in_run: AlreadySeenMoves,
+                already_seen_global: AlreadySeenMoves,
+        ) -> Tuple[BoardState, int]:
+
             current_pillar_idx, current_pillar = current_pillar_info
             target_pillar_idx, target_pillar = target_pillar_info
 
-            value_offset = _get_pillar_offset(current_pillar_idx, target_pillar_idx)
+            value_offset: int = _get_pillar_offset(
+                current_pillar_idx,
+                target_pillar_idx,
+            )
             if _is_illegal_move(current_pillar, value_offset):
-                return ((None, []), 0)
+                empty_response: Tuple[BoardState, int] = ((None, []), 0)
+                return empty_response
 
-            new_pillars = _get_new_pillars(
+            new_pillars: PositionList = _get_new_pillars(
                 current_pillar,
                 current_pillar_idx,
                 target_pillar,
                 target_pillar_idx,
                 value_offset,
             )
-            new_steps = _get_new_steps(
+            new_steps: List[GameMove] = _get_new_steps(
                 current_pillar,
                 target_pillar,
             )
 
-            new_state_hash = _hash_state(new_pillars)
+            new_state_hash: int = _hash_state(new_pillars)
             if (
                 new_state_hash in already_seen_in_run or
                 new_state_hash in already_seen_global
             ):
-               return ((None, []), new_state_hash)
+                invalid_response: Tuple[BoardState, int] = (
+                    (None, []),
+                    new_state_hash,
+                )
+                return invalid_response
 
-            return ((new_pillars, new_steps), new_state_hash)
+            valid_response: Tuple[BoardState, int] = (
+                (new_pillars, new_steps),
+                new_state_hash,
+            )
+            return valid_response
 
         def _get_new_pillars(from_pillar, from_idx, to_pillar, to_idx, value_offset):
             new_pillars = list(pillars)
