@@ -138,9 +138,12 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
         already_seen_in_run = set()
         pillars, steps = current_state
 
-        def _find_new_state(current_pillar_idx, target_pillar_idx):
-            current_pillar = pillars[current_pillar_idx]
-            target_pillar = pillars[target_pillar_idx]
+        def _find_new_state(
+            current_pillar_info,
+            target_pillar_info,
+        ):
+            current_pillar_idx, current_pillar = current_pillar_info
+            target_pillar_idx, target_pillar = target_pillar_info
 
             value_offset = _get_pillar_offset(current_pillar_idx, target_pillar_idx)
             if _is_illegal_move(current_pillar, value_offset):
@@ -169,10 +172,12 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
             queue.append((new_pillars, new_steps))
             already_seen_in_run.add(already_seen_hash)
 
-        pillars_len = len(pillars)
-        for idx in range(pillars_len):
-            for jdx in range(pillars_len):
-                _find_new_state(idx, jdx)
+        for current_pillar in enumerate(pillars):
+            for target_pillar in enumerate(pillars):
+                _find_new_state(
+                    current_pillar,
+                    target_pillar,
+                )
 
         next_queue: BoardQueue = (queue, already_seen_in_run)
         return next_queue
@@ -180,6 +185,16 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
     def _is_solved(current_position):
         return current_position == goal
 
+    # This is a ridiculously ugly function. It's got a runtime of approximately:
+    #
+    #    O(n) = E(i->k) (n^2)^i
+    #
+    # where n is the number of pillars, k is the number of moves, and E is
+    # the summation function.
+    #
+    # We don't have to explore all of these, so we speed up the function by
+    # tracking what we've already seen and trying to parallelize some of the
+    # operations
     def main(queue: List[BoardState]) -> Optional[Solution]:
         solutions_already_seen: AlreadySeenMoves = set()
 
