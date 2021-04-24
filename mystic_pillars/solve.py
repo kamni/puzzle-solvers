@@ -109,7 +109,7 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
         pillars, steps = current_state
         already_seen_in_run: AlreadySeenMoves = set()
 
-        for current_pillar in enumerate(pillars):
+        for target_pillar in enumerate(pillars):
             for target_pillar in enumerate(pillars):
                 new_state, seen_state = find_new_state(
                     current_pillar,
@@ -341,21 +341,29 @@ def pretty_print(solution: Solution, puzzle_number: int):
     print(DIVIDER)
 
 
+def solve_and_print_puzzle(puzzle: Tuple[int, PuzzleConfig]):
+    puzzle_number, config = puzzle
+    solution = solve(config)
+    pretty_print(solution, puzzle_number)
 
 
 ###############################################################################
 
 if __name__ == '__main__':
-    import multiprocessing as mp
     from timeit import timeit
 
-    def solve_puzzle(puzzle):
-        puzzle_number, config = puzzle
-        solution = solve(config)
-        pretty_print(solution, puzzle_number)
-
     def runme():
-        pool = mp.Pool(mp.cpu_count())
-        pool.map(solve_puzzle, PUZZLES.items())
+        # The multiprocessing module is really disappointing, and surprisingly
+        # doesn't give much in terms of performance. It's further impeded by
+        # the fact that it can only work on top-level functions and can't
+        # have child processes. I originally tried to get it to work with the
+        # loop that runs find_new_state, and it took forever.
+        import multiprocessing as mp
+        POOL = mp.Pool(mp.cpu_count())
+        POOL.map(solve_and_print_puzzle, PUZZLES.items())
+
+#        for puzzle in PUZZLES.items():
+#            solve_and_print_puzzle(puzzle)
+
 
     print(timeit(runme, number=1))
