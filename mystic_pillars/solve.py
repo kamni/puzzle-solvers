@@ -13,7 +13,7 @@ Solver for the Mystic Pillars video game.
 
 """
 
-from typing import Dict, Optional, Tuple, TypedDict
+from typing import Dict, List, Optional, Set, Tuple, TypedDict
 
 from puzzle_config import PUZZLES
 
@@ -34,6 +34,11 @@ PositionList = Tuple[Tuple[int, int]]
 # pillar, or the pillar is unreachable.
 PillarDistance = Tuple[Tuple[int, int]]
 
+# Tuple representing a move in the game. First number of the tuple is the
+# number of the pillar to move from; second is the number of the pillar to move
+# to
+GameMove = Tuple[int, int]
+
 class PuzzleConfig(TypedDict):
     max_turns: int
     initial: PositionList
@@ -42,6 +47,13 @@ class PuzzleConfig(TypedDict):
 
 # Dictionary of puzzle configurations. The key is the number of the puzzle
 MultiplePuzzleConfig = Dict[int, PuzzleConfig]
+
+AlreadySeenMoves = Set[int]
+QueuedState = (Optional[PositionList], List[GameMove], AlreadySeenMoves)
+
+class Solution(TypedDict):
+    status: str  # solved, unsolved
+    steps: List[GameMove]
 
 ###############################################################################
 
@@ -53,15 +65,18 @@ def solve_all(puzzles: MultiplePuzzleConfig):
 
 
 # TODO: finish typing the return value for this function
-def solve(puzzle_config: PuzzleConfig):
-    QUEUE = []
-    ALREADY_SEEN = set()
-    DEBUG_LIST = []
+def solve(puzzle_config: PuzzleConfig) -> Solution:
+    FAILURE_SOLUTION = {
+        'status': 'unsolved',
+        'steps': [],
+    }
 
-    max_turns = puzzle_config['max_turns']
-    initial = puzzle_config['initial']
-    goal = puzzle_config['goal']
-    config = puzzle_config['config']
+    solutions_already_seen: AlreadySeenMoves = set()
+
+    max_turns: int = puzzle_config['max_turns']
+    initial: PositionList = puzzle_config['initial']
+    goal: PositionList = puzzle_config['goal']
+    config: PillarDistance = puzzle_config['config']
 
     # Optimization magic -- we can cut down on how much searching we do if we
     # can guess that the number of filled goal pillars matches the number of
@@ -81,7 +96,7 @@ def solve(puzzle_config: PuzzleConfig):
     )
 
     if IS_NOT_SOLVEABLE:
-        ret (None, (), None)
+        return FAILURE_SOLUTION
 
     # Helper methods
     def _hash_state(position_list: PositionList):
@@ -125,7 +140,6 @@ def solve(puzzle_config: PuzzleConfig):
 
         pillars, steps, already_seen_in_run = current_state
         if _number_of_steps_exceeded(steps):
-            DEBUG_LIST.append(current_state)
             return
 
         for idx, current_pillar in enumerate(pillars):
@@ -154,7 +168,7 @@ def solve(puzzle_config: PuzzleConfig):
                     continue
 
                 already_seen_hash = f'{new_state_hash}_{len(new_steps)}'
-                if already_seen_hash in ALREADY_SEEN:
+                if already_seen_hash in solutions_already_seen:
                     continue
 
                 new_already_seen = set(already_seen_in_run)
@@ -164,7 +178,7 @@ def solve(puzzle_config: PuzzleConfig):
                     new_already_seen.add(new_state_hash)
 
                 QUEUE.append((new_pillars, new_steps, already_seen_in_run))
-                ALREADY_SEEN.add(already_seen_hash)
+                solutions_already_seen.add(already_seen_hash)
 
 
     def _is_solved(possible_solution):
@@ -172,31 +186,24 @@ def solve(puzzle_config: PuzzleConfig):
 
     # Begin main function execution
 
-    QUEUE.append((initial, [], set()))
+    QUEUE = [(initial, [], set())]
     while QUEUE:
         tmp_solution = QUEUE.pop()
         if _is_solved(tmp_solution):
-            return tmp_solution
+            steps: List[GameMove] = tmp_solution[1]
+            solution: Solution = {
+                'status': 'solved',
+                'steps': steps,
+            }
+            return solution
         else:
             _seed_queue(tmp_solution)
 
-    return (None, DEBUG_LIST, None)
+    return FAILURE_SOLUTION
 
 
 def pretty_print(solution):
     DIVIDER = '--------'
-
-    # Helper functions
-
-    def _is_close_to_goal(solution, max_value_difference=2):
-        # NOTE: max_value_difference should always be a multiple of 2,
-        # because if one pillar is off by 1 stone, then the stone is added
-        # somewhere else
-        off_by = sum([
-            abs(solution[idx][1] - goal[idx][1])
-            for idx in range(len(goal))
-        ])
-        return off_by <= max_value_difference
 
     def _print_formatted_list(step_list):
         for idx, step in enumerate(step_list):
@@ -209,26 +216,17 @@ def pretty_print(solution):
             )
 
     # Begin main function execution
-
     print(DIVIDER)
 
-    pillars, steps, _ = solution
-    if not pillars:
+    if not solution['status'] == 'solved':
         print('No solution to the constraints provided')
-        print('Close results (off by 2)')
         print(DIVIDER)
-
-        steps.sort()
-        for idx, (result, step_list) in enumerate(steps):
-            if _is_close_to_goal(result):
-                print(f'Attempted Solution #{idx}:\n')
-                _print_formatted_list(step_list)
-                print(DIVIDER)
 
     else:
         print('Solved!\n')
-        _print_formatted_list(steps)
+        _print_formatted_list(solution['steps'])
         print(DIVIDER)
+
 
 
 ###############################################################################
