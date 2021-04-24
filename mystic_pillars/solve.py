@@ -25,7 +25,8 @@ from puzzle_config import PUZZLES
 # Iterable of tuples describing the layout of the current board. First number in
 # the tuple is the column number; second number is the number of stones sitting
 # on the column.
-PositionList = Tuple[Tuple[int, int]]
+Pillar = Tuple[int, int]
+BoardPositions = Tuple[Pillar]
 
 # Iterable of tuples describing distance to each of the pillars relative to another
 # pillar. First number of the tuple is the column number to move stones to;
@@ -41,15 +42,15 @@ GameMove = Tuple[int, int]
 
 class PuzzleConfig(TypedDict):
     max_turns: int
-    initial: PositionList
-    goal: PositionList
+    initial: BoardPositions
+    goal: BoardPositions
     config: Tuple[PillarDistance]
 
 # Dictionary of puzzle configurations. The key is the number of the puzzle
 MultiplePuzzleConfig = Dict[int, PuzzleConfig]
 
 AlreadySeenMoves = Set[int]
-BoardState = Tuple[PositionList, List[GameMove]]
+BoardState = Tuple[BoardPositions, List[GameMove]]
 BoardQueue = Tuple[List[BoardState], AlreadySeenMoves]
 
 class Solution(TypedDict):
@@ -73,8 +74,8 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
     }
 
     max_turns: int = puzzle_config['max_turns']
-    initial: PositionList = puzzle_config['initial']
-    goal: PositionList = puzzle_config['goal']
+    initial: BoardPositions = puzzle_config['initial']
+    goal: BoardPositions = puzzle_config['goal']
     config: PillarDistance = puzzle_config['config']
 
     # Optimization magic -- we can cut down on how much searching we do if we
@@ -97,7 +98,7 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
 
     ########################### HELPER METHODS ################################
 
-    def _hash_state(position_list: PositionList) -> int:
+    def _hash_state(position_list: BoardPositions) -> int:
         return hash(position_list)
 
     def _seed_queue(
@@ -107,10 +108,12 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
 
         # Helper methods
         def _find_new_state(
-                current_pillar_info: Tuple[int, PositionList],
-                target_pillar_info: Tuple[int, PositionList],
+                current_pillar_info: Tuple[int, Pillar],
+                target_pillar_info: Tuple[int, Pillar],
                 already_seen_in_run: AlreadySeenMoves,
                 already_seen_global: AlreadySeenMoves,
+                old_pillars: BoardPositions,
+                old_steps: List[GameMove],
         ) -> Tuple[BoardState, int]:
 
             current_pillar_idx, current_pillar = current_pillar_info
@@ -124,16 +127,18 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
                 empty_response: Tuple[BoardState, int] = ((None, []), 0)
                 return empty_response
 
-            new_pillars: PositionList = _get_new_pillars(
+            new_pillars: BoardPositions = _get_new_pillars(
                 current_pillar,
                 current_pillar_idx,
                 target_pillar,
                 target_pillar_idx,
                 value_offset,
+                old_pillars,
             )
             new_steps: List[GameMove] = _get_new_steps(
                 current_pillar,
                 target_pillar,
+                old_steps,
             )
 
             new_state_hash: int = _hash_state(new_pillars)
@@ -153,8 +158,16 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
             )
             return valid_response
 
-        def _get_new_pillars(from_pillar, from_idx, to_pillar, to_idx, value_offset):
-            new_pillars = list(pillars)
+        def _get_new_pillars(
+                from_pillar: Pillar,
+                from_idx: int,
+                to_pillar: Pillar,
+                to_idx: int,
+                value_offset: int,
+                old_pillars: BoardPositions,
+        ) -> BoardPositions:
+
+            new_pillars = list(old_pillars)
 
             new_from = (from_pillar[0], from_pillar[1] - value_offset)
             new_to = (to_pillar[0], to_pillar[1] + value_offset)
@@ -163,15 +176,25 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
 
             return tuple(new_pillars)
 
-        def _get_new_steps(from_pillar, to_pillar):
+        def _get_new_steps(
+                from_pillar: Pillar,
+                to_pillar: Pillar,
+                steps: List[GameMove],
+        ) -> List[GameMove]:
             new_steps = steps[:]
             new_steps.append((from_pillar[0], to_pillar[0]))
             return new_steps
 
-        def _get_pillar_offset(pillar1_index, pillar2_index):
+        def _get_pillar_offset(
+                pillar1_index: int,
+                pillar2_index: int,
+        ) -> int:
             return config[pillar1_index][pillar2_index][1]
 
-        def _is_illegal_move(pillar, offset_from_pillar):
+        def _is_illegal_move(
+                pillar: Pillar,
+                offset_from_pillar: int,
+        ) -> bool:
             value_for_pillar = pillar[1]
 
             return (
@@ -179,12 +202,12 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
                 offset_from_pillar > value_for_pillar
             )
 
-        # Begin main function execution
+        #################### BEGIN MAIN FUNCTION EXECUTION ####################
 
-        queue = []
+        queue: List[BoardState] = []
         pillars, steps = current_state
-
         already_seen_in_run: AlreadySeenMoves = set()
+
         for current_pillar in enumerate(pillars):
             for target_pillar in enumerate(pillars):
                 new_state, seen_state = _find_new_state(
@@ -192,6 +215,8 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
                     target_pillar,
                     already_seen_in_run,
                     solutions_already_seen,
+                    pillars,
+                    steps,
                 )
                 if new_state[0] is not None:
                     queue.append(new_state)
@@ -200,8 +225,11 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
         next_queue: BoardQueue = (queue, already_seen_in_run)
         return next_queue
 
-    def _is_solved(current_position):
-        return current_position == goal
+    def _is_solved(
+            current_position: BoardPositions,
+            goal_position: BoardPositions,
+    ) -> bool:
+        return current_position == goal_position
 
     # This is a ridiculously ugly function. It's got a runtime of approximately:
     #
@@ -213,13 +241,16 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
     # We don't have to explore all of these, so we speed up the function by
     # tracking what we've already seen and trying to parallelize some of the
     # operations
-    def main(queue: List[BoardState]) -> Optional[Solution]:
+    def main(
+            queue: List[BoardState],
+            goal: BoardPositions,
+    ) -> Optional[Solution]:
         solutions_already_seen: AlreadySeenMoves = set()
 
         while queue:
             current_position, steps = queue.pop()
 
-            if _is_solved(current_position):
+            if _is_solved(current_position, goal):
                 solution: Solution = {
                     'status': 'solved',
                     'steps': steps,
@@ -240,14 +271,14 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
     # Begin main function execution
 
     queue: List[BoardState] = [(initial, [])]
-    solution: Solution = main(queue)
+    solution: Solution = main(queue, goal)
     return solution or FAILURE_SOLUTION
 
 
-def pretty_print(solution):
+def pretty_print(solution: Solution, puzzle_number: int):
     DIVIDER = '--------'
 
-    def _print_formatted_list(step_list):
+    def _print_formatted_list(step_list: List[GameMove]):
         for idx, step in enumerate(step_list):
             print(
                 '  {num}. Move stones from pillar {p1} to {p2}'.format(
@@ -261,11 +292,11 @@ def pretty_print(solution):
     print(DIVIDER)
 
     if not solution['status'] == 'solved':
-        print('No solution to the constraints provided')
+        print(f'No solution to puzzle #{puzzle_number}for the constraints provided')
         print(DIVIDER)
 
     else:
-        print('Solved!\n')
+        print(f'Solved puzzle #{puzzle_number}!\n')
         _print_formatted_list(solution['steps'])
         print(DIVIDER)
 
@@ -277,7 +308,8 @@ if __name__ == '__main__':
     from timeit import timeit
 
     def runme():
-        solution = solve(PUZZLES[47])
-        pretty_print(solution)
+        puzzle_number = 47
+        solution = solve(PUZZLES[puzzle_number])
+        pretty_print(solution, puzzle_number)
 
     print(timeit(runme, number=1))
