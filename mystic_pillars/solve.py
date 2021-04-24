@@ -16,10 +16,6 @@ Solver for the Mystic Pillars video game.
 from puzzle_config import PositionList, PillarDistance, PUZZLES, PuzzleConfig
 
 
-def hash_state(position_list: PositionList):
-    return hash(position_list)
-
-
 def solve(initial, config, goal, max_turns):
     QUEUE = []
     ALREADY_SEEN = set()
@@ -34,6 +30,9 @@ def solve(initial, config, goal, max_turns):
     ONLY_MOVE_A_PILLAR_ONCE = max_turns == _minimum_number_of_turns(initial, goal)
 
     # Helper methods
+    def _hash_state(position_list: PositionList):
+        return hash(position_list)
+
 
     def _seed_queue(current_state):
         # Helper methods
@@ -96,7 +95,7 @@ def solve(initial, config, goal, max_turns):
                     other_pillar,
                 )
 
-                new_state_hash = hash_state(new_pillars)
+                new_state_hash = _hash_state(new_pillars)
                 if new_state_hash in already_seen_in_run:
                     continue
 
@@ -182,16 +181,11 @@ def pretty_print(initial, solution):
         steps.sort()
         for idx, (result, step_list) in enumerate(steps):
             if _is_close_to_goal(result):
-                state = hash_state(result)
-
                 print(f'Attempted Solution #{idx}:\n')
                 _print_formatted_list(step_list)
                 print(DIVIDER)
 
     else:
-        initial_state = hash_state(initial)
-        final_state = hash_state(pillars)
-
         print('Solved!\n')
         _print_formatted_list(steps)
         print(DIVIDER)

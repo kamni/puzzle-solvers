@@ -3,7 +3,7 @@
 ## Setup:
 
 Before you can run the script, you need to configure the ``max_turns``,
-``initial``, ``config``, and ``goal`` variables at the top of this script.
+``initial``, ``config``, and ``goal`` variables for each puzzle you want to run.
 
 ### max_turns
 
@@ -67,9 +67,10 @@ config = (
 
 """
 
-# Set your solution constraints here.
-
 ###############################################################################
+
+# SKIP TO THE BOTTOM TO SET SOLUTION CONSTRAINTS
+
 from typing import Dict, Tuple, TypedDict
 
 
@@ -94,6 +95,9 @@ class PuzzleConfig(TypedDict):
 # Dictionary of puzzle configurations. The key is the number of the puzzle
 MultiplePuzzleConfig = Dict[int, PuzzleConfig]
 
+###############################################################################
+
+# SET YOUR SOLUTION CONSTRAINTS HERE
 
 PUZZLES: MultiplePuzzleConfig = {
     0: {  # test problem
