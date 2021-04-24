@@ -99,111 +99,11 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
 
     ########################### HELPER METHODS ################################
 
-    def _hash_state(position_list: BoardPositions) -> int:
-        return hash(position_list)
-
     def _seed_queue(
         current_state: BoardState,
         solutions_already_seen: AlreadySeenMoves,
+        config: PillarDistance,
     ) -> BoardQueue:
-
-        # Helper methods
-        def _find_new_state(
-                current_pillar_info: Tuple[int, Pillar],
-                target_pillar_info: Tuple[int, Pillar],
-                already_seen_in_run: AlreadySeenMoves,
-                already_seen_global: AlreadySeenMoves,
-                old_pillars: BoardPositions,
-                old_steps: List[GameMove],
-        ) -> Tuple[BoardState, int]:
-
-            current_pillar_idx, current_pillar = current_pillar_info
-            target_pillar_idx, target_pillar = target_pillar_info
-
-            value_offset: int = _get_pillar_offset(
-                current_pillar_idx,
-                target_pillar_idx,
-            )
-            if _is_illegal_move(current_pillar, value_offset):
-                empty_response: Tuple[BoardState, int] = ((None, []), 0)
-                return empty_response
-
-            new_pillars: BoardPositions = _get_new_pillars(
-                current_pillar,
-                current_pillar_idx,
-                target_pillar,
-                target_pillar_idx,
-                value_offset,
-                old_pillars,
-            )
-            new_steps: List[GameMove] = _get_new_steps(
-                current_pillar,
-                target_pillar,
-                old_steps,
-            )
-
-            new_state_hash: int = _hash_state(new_pillars + (len(new_steps),))
-            if (
-                new_state_hash in already_seen_in_run or
-                new_state_hash in already_seen_global
-            ):
-                invalid_response: Tuple[BoardState, int] = (
-                    (None, []),
-                    new_state_hash,
-                )
-                return invalid_response
-
-            valid_response: Tuple[BoardState, int] = (
-                (new_pillars, new_steps),
-                new_state_hash,
-            )
-            return valid_response
-
-        def _get_new_pillars(
-                from_pillar: Pillar,
-                from_idx: int,
-                to_pillar: Pillar,
-                to_idx: int,
-                value_offset: int,
-                old_pillars: BoardPositions,
-        ) -> BoardPositions:
-
-            new_pillars = list(old_pillars)
-
-            new_from = (from_pillar[0], from_pillar[1] - value_offset)
-            new_to = (to_pillar[0], to_pillar[1] + value_offset)
-            new_pillars[from_idx] = new_from
-            new_pillars[to_idx] = new_to
-
-            return tuple(new_pillars)
-
-        def _get_new_steps(
-                from_pillar: Pillar,
-                to_pillar: Pillar,
-                steps: List[GameMove],
-        ) -> List[GameMove]:
-            new_steps = steps[:]
-            new_steps.append((from_pillar[0], to_pillar[0]))
-            return new_steps
-
-        def _get_pillar_offset(
-                pillar1_index: int,
-                pillar2_index: int,
-        ) -> int:
-            return config[pillar1_index][pillar2_index][1]
-
-        def _is_illegal_move(
-                pillar: Pillar,
-                offset_from_pillar: int,
-        ) -> bool:
-            value_for_pillar = pillar[1]
-
-            return (
-                offset_from_pillar <= 0 or
-                offset_from_pillar > value_for_pillar
-            )
-
-        #################### BEGIN MAIN FUNCTION EXECUTION ####################
 
         queue: List[BoardState] = []
         pillars, steps = current_state
@@ -211,13 +111,14 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
 
         for current_pillar in enumerate(pillars):
             for target_pillar in enumerate(pillars):
-                new_state, seen_state = _find_new_state(
+                new_state, seen_state = find_new_state(
                     current_pillar,
                     target_pillar,
                     already_seen_in_run,
                     solutions_already_seen,
                     pillars,
                     steps,
+                    config,
                 )
                 if new_state[0] is not None:
                     queue.append(new_state)
@@ -259,6 +160,7 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
     def main(
             queue: List[BoardState],
             goal: BoardPositions,
+            config: PillarDistance,
     ) -> Tuple[Optional[Solution], Optional[List[BoardState]]]:
         solutions_already_seen: AlreadySeenMoves = set()
 
@@ -284,6 +186,7 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
                 new_states, seen_states = _seed_queue(
                     (current_position, steps),
                     solutions_already_seen,
+                    config,
                 )
                 solutions_already_seen.update(seen_states)
                 queue.extend(new_states)
@@ -293,13 +196,117 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
     # Begin main function execution
 
     queue: List[BoardState] = [(initial, [])]
-    solution, debugging_queue = main(queue, goal)
+    solution, debugging_queue = main(queue, goal, config)
 
     if not solution:
         solution = FAILURE_SOLUTION.copy()
         solution['debug'] = debugging_queue
 
     return solution
+
+
+def find_new_state(
+        current_pillar_info: Tuple[int, Pillar],
+        target_pillar_info: Tuple[int, Pillar],
+        already_seen_in_run: AlreadySeenMoves,
+        already_seen_global: AlreadySeenMoves,
+        old_pillars: BoardPositions,
+        old_steps: List[GameMove],
+        config: PillarDistance,
+) -> Tuple[BoardState, int]:
+
+    current_pillar_idx, current_pillar = current_pillar_info
+    target_pillar_idx, target_pillar = target_pillar_info
+
+    # Helper methods
+    def _get_new_pillars(
+            from_pillar: Pillar,
+            from_idx: int,
+            to_pillar: Pillar,
+            to_idx: int,
+            value_offset: int,
+            old_pillars: BoardPositions,
+    ) -> BoardPositions:
+
+        new_pillars = list(old_pillars)
+
+        new_from = (from_pillar[0], from_pillar[1] - value_offset)
+        new_to = (to_pillar[0], to_pillar[1] + value_offset)
+        new_pillars[from_idx] = new_from
+        new_pillars[to_idx] = new_to
+
+        return tuple(new_pillars)
+
+    def _get_new_steps(
+            from_pillar: Pillar,
+            to_pillar: Pillar,
+            steps: List[GameMove],
+    ) -> List[GameMove]:
+        new_steps = steps[:]
+        new_steps.append((from_pillar[0], to_pillar[0]))
+        return new_steps
+
+    def _get_pillar_offset(
+            pillar1_index: int,
+            pillar2_index: int,
+    ) -> int:
+        return config[pillar1_index][pillar2_index][1]
+
+    def _hash_state(position_list: BoardPositions) -> int:
+        return hash(position_list)
+
+    def _is_illegal_move(
+            pillar: Pillar,
+            offset_from_pillar: int,
+    ) -> bool:
+        value_for_pillar = pillar[1]
+
+        return (
+            offset_from_pillar <= 0 or
+            offset_from_pillar > value_for_pillar
+        )
+
+    ###################### BEGIN MAIN FUNCTION EXECUTION ######################
+
+    value_offset: int = _get_pillar_offset(
+        current_pillar_idx,
+        target_pillar_idx,
+    )
+
+    if _is_illegal_move(current_pillar, value_offset):
+        empty_response: Tuple[BoardState, int] = ((None, []), 0)
+        return empty_response
+
+    new_pillars: BoardPositions = _get_new_pillars(
+        current_pillar,
+        current_pillar_idx,
+        target_pillar,
+        target_pillar_idx,
+        value_offset,
+        old_pillars,
+    )
+    new_steps: List[GameMove] = _get_new_steps(
+        current_pillar,
+        target_pillar,
+        old_steps,
+    )
+
+    new_state_hash: int = _hash_state(new_pillars + (len(new_steps),))
+    if (
+        new_state_hash in already_seen_in_run or
+        new_state_hash in already_seen_global
+    ):
+        invalid_response: Tuple[BoardState, int] = (
+            (None, []),
+            new_state_hash,
+        )
+        return invalid_response
+
+    valid_response: Tuple[BoardState, int] = (
+        (new_pillars, new_steps),
+        new_state_hash,
+    )
+    return valid_response
 
 
 def pretty_print(solution: Solution, puzzle_number: int):
