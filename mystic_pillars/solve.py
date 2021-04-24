@@ -49,7 +49,8 @@ class PuzzleConfig(TypedDict):
 MultiplePuzzleConfig = Dict[int, PuzzleConfig]
 
 AlreadySeenMoves = Set[int]
-QueuedState = (Optional[PositionList], List[GameMove], AlreadySeenMoves)
+BoardState = Tuple[PositionList, List[GameMove]]
+BoardQueue = Tuple[List[BoardState], AlreadySeenMoves]
 
 class Solution(TypedDict):
     status: str  # solved, unsolved
@@ -71,8 +72,6 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
         'steps': [],
     }
 
-    solutions_already_seen: AlreadySeenMoves = set()
-
     max_turns: int = puzzle_config['max_turns']
     initial: PositionList = puzzle_config['initial']
     goal: PositionList = puzzle_config['goal']
@@ -88,8 +87,6 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
     )
     total_initial_value = sum(pillar[1] for pillar in initial)
     total_goal_value = sum(pillar[1] for pillar in goal)
-    
-    ONLY_MOVE_A_PILLAR_ONCE = max_turns == min_turns
     IS_NOT_SOLVEABLE = (
         min_turns > max_turns or
         total_initial_value != total_goal_value
@@ -103,9 +100,12 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
         return hash(position_list)
 
 
-    def _seed_queue(current_state):
-        # Helper methods
+    def _seed_queue(
+        current_state: BoardState,
+        solutions_already_seen: AlreadySeenMoves,
+    ) -> BoardQueue:
 
+        # Helper methods
         def _get_new_pillars(from_pillar, from_idx, to_pillar, to_idx, value_offset):
             new_pillars = list(pillars)
 
@@ -132,15 +132,11 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
                 offset_from_pillar > value_for_pillar
             )
 
-        def _number_of_steps_exceeded(step_list):
-            return len(step_list) >= max_turns
-
-
         # Begin main function execution
 
-        pillars, steps, already_seen_in_run = current_state
-        if _number_of_steps_exceeded(steps):
-            return
+        queue = []
+        already_seen_in_run = set()
+        pillars, steps = current_state
 
         for idx, current_pillar in enumerate(pillars):
             current_config = config[idx]
@@ -164,40 +160,44 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
                 )
 
                 new_state_hash = _hash_state(new_pillars)
-                if new_state_hash in already_seen_in_run:
-                    continue
-
                 already_seen_hash = f'{new_state_hash}_{len(new_steps)}'
-                if already_seen_hash in solutions_already_seen:
+                if (
+                    already_seen_hash in already_seen_in_run or
+                    already_seen_hash in solutions_already_seen
+                ):
                     continue
 
-                new_already_seen = set(already_seen_in_run)
-                if ONLY_MOVE_A_PILLAR_ONCE:
-                    new_already_seen.add(jdx)
-                else:
-                    new_already_seen.add(new_state_hash)
+                queue.append((new_pillars, new_steps))
+                already_seen_in_run.add(already_seen_hash)
 
-                QUEUE.append((new_pillars, new_steps, already_seen_in_run))
-                solutions_already_seen.add(already_seen_hash)
+        next_queue: BoardQueue = (queue, already_seen_in_run)
+        return next_queue
 
-
-    def _is_solved(possible_solution):
-        return possible_solution[0] == goal
+    def _is_solved(current_position):
+        return current_position == goal
 
     # Begin main function execution
 
-    QUEUE = [(initial, [], set())]
-    while QUEUE:
-        tmp_solution = QUEUE.pop()
-        if _is_solved(tmp_solution):
-            steps: List[GameMove] = tmp_solution[1]
+    solutions_already_seen: AlreadySeenMoves = set()
+    queue: List[BoardState] = [(initial, [])]
+    while queue:
+        current_position, steps = queue.pop()
+
+        if _is_solved(current_position):
             solution: Solution = {
                 'status': 'solved',
                 'steps': steps,
             }
             return solution
+        elif len(steps) >= max_turns:
+                continue
         else:
-            _seed_queue(tmp_solution)
+            new_states, seen_states = _seed_queue(
+                (current_position, steps),
+                solutions_already_seen,
+            )
+            solutions_already_seen.update(seen_states)
+            queue.extend(new_states)
 
     return FAILURE_SOLUTION
 
