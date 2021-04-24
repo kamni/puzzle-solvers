@@ -142,7 +142,7 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
                 old_steps,
             )
 
-            new_state_hash: int = _hash_state(new_pillars)
+            new_state_hash: int = _hash_state(new_pillars + (len(new_steps),))
             if (
                 new_state_hash in already_seen_in_run or
                 new_state_hash in already_seen_global
@@ -325,7 +325,8 @@ def pretty_print(solution: Solution, puzzle_number: int):
         print(f'No solution to puzzle #{puzzle_number} for the constraints provided')
     else:
         print(f'Several close solutions were almost found for puzzle #{puzzle_number}:\n')
-        debug_queue = solution['debug'][:5]
+        #debug_queue = solution['debug'][:5]
+        debug_queue = solution['debug']
         for _, steps in debug_queue:
             _print_formatted_list(steps)
             print('****')
