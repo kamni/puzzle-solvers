@@ -106,6 +106,40 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
     ) -> BoardQueue:
 
         # Helper methods
+        def _find_new_state(
+            current_pillar_info,
+            target_pillar_info,
+            already_seen_in_run,
+            already_seen_global,
+        ):
+            current_pillar_idx, current_pillar = current_pillar_info
+            target_pillar_idx, target_pillar = target_pillar_info
+
+            value_offset = _get_pillar_offset(current_pillar_idx, target_pillar_idx)
+            if _is_illegal_move(current_pillar, value_offset):
+                return ((None, []), 0)
+
+            new_pillars = _get_new_pillars(
+                current_pillar,
+                current_pillar_idx,
+                target_pillar,
+                target_pillar_idx,
+                value_offset,
+            )
+            new_steps = _get_new_steps(
+                current_pillar,
+                target_pillar,
+            )
+
+            new_state_hash = _hash_state(new_pillars)
+            if (
+                new_state_hash in already_seen_in_run or
+                new_state_hash in already_seen_global
+            ):
+               return ((None, []), new_state_hash)
+
+            return ((new_pillars, new_steps), new_state_hash)
+
         def _get_new_pillars(from_pillar, from_idx, to_pillar, to_idx, value_offset):
             new_pillars = list(pillars)
 
@@ -135,45 +169,20 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
         # Begin main function execution
 
         queue = []
-        already_seen_in_run = set()
         pillars, steps = current_state
 
-        def _find_new_state(
-            current_pillar_info,
-            target_pillar_info,
-        ):
-            current_pillar_idx, current_pillar = current_pillar_info
-            target_pillar_idx, target_pillar = target_pillar_info
-
-            value_offset = _get_pillar_offset(current_pillar_idx, target_pillar_idx)
-            if _is_illegal_move(current_pillar, value_offset):
-                return None
-
-            new_pillars = _get_new_pillars(
-                current_pillar,
-                current_pillar_idx,
-                target_pillar,
-                target_pillar_idx,
-                value_offset,
-            )
-            new_steps = _get_new_steps(
-                current_pillar,
-                target_pillar,
-            )
-
-            new_state_hash = _hash_state(new_pillars)
-            already_seen_hash = f'{new_state_hash}_{len(new_steps)}'
-            if (
-                already_seen_hash in already_seen_in_run or
-                already_seen_hash in solutions_already_seen
-            ):
-               return None
-
-            queue.append((new_pillars, new_steps))
-            already_seen_in_run.add(already_seen_hash)
-
+        already_seen_in_run: AlreadySeenMoves = set()
         for current_pillar in enumerate(pillars):
-            foo = list(map(lambda target_pillar: _find_new_state(current_pillar, target_pillar), enumerate(pillars)))
+            for target_pillar in enumerate(pillars):
+                new_state, seen_state = _find_new_state(
+                    current_pillar,
+                    target_pillar,
+                    already_seen_in_run,
+                    solutions_already_seen,
+                )
+                if new_state[0] is not None:
+                    queue.append(new_state)
+                already_seen_in_run.add(seen_state)
 
         next_queue: BoardQueue = (queue, already_seen_in_run)
         return next_queue
