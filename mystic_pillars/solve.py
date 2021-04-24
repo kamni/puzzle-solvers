@@ -176,30 +176,35 @@ def solve(puzzle_config: PuzzleConfig) -> Solution:
     def _is_solved(current_position):
         return current_position == goal
 
+    def main(queue: List[BoardState]) -> Optional[Solution]:
+        solutions_already_seen: AlreadySeenMoves = set()
+
+        while queue:
+            current_position, steps = queue.pop()
+
+            if _is_solved(current_position):
+                solution: Solution = {
+                    'status': 'solved',
+                    'steps': steps,
+                }
+                return solution
+            elif len(steps) >= max_turns:
+                    continue
+            else:
+                new_states, seen_states = _seed_queue(
+                    (current_position, steps),
+                    solutions_already_seen,
+                )
+                solutions_already_seen.update(seen_states)
+                queue.extend(new_states)
+
+        return None
+
     # Begin main function execution
 
-    solutions_already_seen: AlreadySeenMoves = set()
     queue: List[BoardState] = [(initial, [])]
-    while queue:
-        current_position, steps = queue.pop()
-
-        if _is_solved(current_position):
-            solution: Solution = {
-                'status': 'solved',
-                'steps': steps,
-            }
-            return solution
-        elif len(steps) >= max_turns:
-                continue
-        else:
-            new_states, seen_states = _seed_queue(
-                (current_position, steps),
-                solutions_already_seen,
-            )
-            solutions_already_seen.update(seen_states)
-            queue.extend(new_states)
-
-    return FAILURE_SOLUTION
+    solution: Solution = main(queue)
+    return solution or FAILURE_SOLUTION
 
 
 def pretty_print(solution):
